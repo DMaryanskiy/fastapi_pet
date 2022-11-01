@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Text, Time, LargeBinary
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Text, Time
 
 from .database import Base
 
