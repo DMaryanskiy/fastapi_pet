@@ -8,7 +8,7 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from db import schemas, models
 from db.database import database
 
-from .schemas import Token
+from .models import Token
 from .utils import user_authenticate, create_access_token, get_current_active_user
 
 user_router = APIRouter()
@@ -25,8 +25,9 @@ async def create_user(user: schemas.UserCreate):
     query_db_user = models.users.select(models.users.c.email == user.email)
     db_user = await database.execute(query_db_user)
     if db_user:
-        raise HTTPException(status_code=400, detail="Username already exists.")
-    hashed_password = bcrypt.hashpw(user.password.encode("utf-8"), bcrypt.gensalt())
+        raise HTTPException(status_code=400, detail="User with this email already exists.")
+
+    hashed_password = bcrypt.hashpw(user.password.encode(), bcrypt.gensalt())
     user_data = {
         "firstname": user.firstname,
         "lastname": user.lastname,
@@ -34,8 +35,9 @@ async def create_user(user: schemas.UserCreate):
         "hashed_password": hashed_password.decode(),
         "disabled": True
     }
-    query = models.users.insert().values(**user_data)
-    last_record_id = await database.execute(query)
+
+    query_user_create = models.users.insert().values(**user_data)
+    last_record_id = await database.execute(query_user_create) # creates new record and returns its id.
     resp = schemas.User(**user_data, id=last_record_id)
     return resp
 
@@ -56,6 +58,7 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"}
         )
+    
     access_token_expires = timedelta(minutes=int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES")))
     access_token = await create_access_token(
         data={"sub": user.email}, expires_delta=access_token_expires
