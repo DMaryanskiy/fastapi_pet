@@ -1,11 +1,12 @@
 from datetime import timedelta
 import os
+
+import bcrypt
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 
-from db import schemas, crud
-from db.database import get_db
+from db import schemas, models
+from db.database import database
 
 from .schemas import Token
 from .utils import user_authenticate, create_access_token, get_current_active_user
@@ -15,19 +16,31 @@ user_router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/users/token")
 
 @user_router.post("/create", response_model=schemas.User, status_code=status.HTTP_201_CREATED)
-async def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
+async def create_user(user: schemas.UserCreate):
     """
     Registration request.
     Args:
         user: form with user credentials - email, firstname, lastname and password
     """
-    db_user = crud.get_user_by_email(db, email=user.email)
+    query_db_user = models.users.select(models.users.c.email == user.email)
+    db_user = await database.execute(query_db_user)
     if db_user:
         raise HTTPException(status_code=400, detail="Username already exists.")
-    return crud.create_user(db=db, user=user)
+    hashed_password = bcrypt.hashpw(user.password.encode("utf-8"), bcrypt.gensalt())
+    user_data = {
+        "firstname": user.firstname,
+        "lastname": user.lastname,
+        "email": user.email,
+        "hashed_password": hashed_password.decode(),
+        "disabled": True
+    }
+    query = models.users.insert().values(**user_data)
+    last_record_id = await database.execute(query)
+    resp = schemas.User(**user_data, id=last_record_id)
+    return resp
 
 @user_router.post("/token", response_model=Token, status_code=status.HTTP_201_CREATED)
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
     """
     Login request.
     Args:
@@ -36,7 +49,7 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     Returns:
         token: dictionary with access token and its type.
     """
-    user = await user_authenticate(form_data, db)
+    user = await user_authenticate(form_data)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

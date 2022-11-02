@@ -5,23 +5,23 @@ import bcrypt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import jwt, JWTError
-from sqlalchemy.orm import Session
 
-from db import crud, schemas
-from db.database import get_db
+from db import models, schemas
+from db.database import database
 from .schemas import TokenData
 
 async def row2dict(row) -> dict:
     """ Function to convert SQLAlchemy row to dictionary. """
     d = {}
-    for column in row.__table__.columns:
-        d[column.name] = str(getattr(row, column.name))
+    for column in row._result_columns:
+        d[column[0]] = str(getattr(row, column[0]))
     
     return d
 
-async def user_authenticate(form_data: OAuth2PasswordRequestForm, db: Session) -> schemas.User | bool:
+async def user_authenticate(form_data: OAuth2PasswordRequestForm) -> schemas.User | bool:
     """ Function to check whether user exists and its password is true. """
-    user_model = crud.get_user_by_email(db, email=form_data.username)
+    query_user_model = models.users.select(models.users.c.email == form_data.username)
+    user_model = await database.fetch_one(query_user_model)
     if not user_model:
         return False
     user = schemas.User(**(await row2dict(user_model))) # converting SQLAlchemy row to dict.
@@ -37,7 +37,7 @@ async def create_access_token(data: dict, expires_delta: timedelta | None = None
     encoded_jwt = jwt.encode(to_encode, os.environ.get("SECRET_KEY"), algorithm=os.environ.get("ALGORITHM"))
     return encoded_jwt
 
-async def get_current_user(db: Session = Depends(get_db), token: str = Depends(OAuth2PasswordBearer(tokenUrl="api/v1/users/token"))):
+async def get_current_user(token: str = Depends(OAuth2PasswordBearer(tokenUrl="api/v1/users/token"))):
     """ Function to get current user by its access token. """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -52,7 +52,8 @@ async def get_current_user(db: Session = Depends(get_db), token: str = Depends(O
         token_data = TokenData(email=email)
     except JWTError:
         raise credentials_exception
-    user = crud.get_user_by_email(db=db, email=token_data.email)
+    query_user = models.users.select(models.users.c.email == token_data.email)
+    user = await database.fetch_one(query_user)
     if not user:
         raise credentials_exception
     return user

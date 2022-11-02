@@ -1,35 +1,35 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Text, Time
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Text, Time, Table
 
-from .database import Base
+from .database import metadata
 
+users = Table(
+    "users",
+    metadata,
+    Column("id", Integer, primary_key=True, index=True),
+    Column("firstname", String, index=True),
+    Column("lastname", String, index=True),
+    Column("email", String, unique=True, index=True),
+    Column("hashed_password", String, index=True),
+    Column("disabled", Boolean)
+)
 
-class User(Base):
-    __tablename__ = "users"
+task = Table(
+    "task",
+    metadata,
+    Column("id", Integer, primary_key=True, index=True),
+    Column("task", String, index=True),
+    Column("time", Time),
+    Column("description", Text, index=True),
+    Column("done", Boolean),
 
-    id = Column(Integer, primary_key=True, index=True)
-    firstname = Column(String, index=True)
-    lastname = Column(String, index=True)
-    email = Column(String, unique=True, index=True)
-    hashed_password = Column(String, index=True)
-    disabled = Column(Boolean)
+    Column("list_id", Integer, ForeignKey("todolist.id"))
+)
 
+todolist = Table(
+    "todolist",
+    metadata,
+    Column("id", Integer, primary_key=True, index=True),
+    Column("name", String, index=True),
 
-class Task(Base):
-    __tablename__ = "task"
-
-    id = Column(Integer, primary_key=True, index=True)
-    task = Column(String, index=True)
-    time = Column(Time)
-    description = Column(Text, index=True)
-    done = Column(Boolean)
-
-    list_id = Column(Integer, ForeignKey("todolist.id"))
-
-
-class ToDoList(Base):
-    __tablename__ = "todolist"
-
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, index=True)
-    
-    user_id = Column(Integer, ForeignKey("users.id"))
+    Column("user_id", Integer, ForeignKey("users.id"))
+)
