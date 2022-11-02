@@ -2,25 +2,28 @@ from datetime import timedelta
 import os
 
 import bcrypt
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 
 from db import schemas, models
 from db.database import database
 
 from .models import Token
-from .utils import user_authenticate, create_access_token, get_current_active_user
+from . import utils
 
 user_router = APIRouter()
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/users/token")
 
 @user_router.post("/create", response_model=schemas.User, status_code=status.HTTP_201_CREATED)
-async def create_user(user: schemas.UserCreate):
+async def create_user(user: schemas.UserCreate, backgroundtasks: BackgroundTasks):
     """
     Registration request.
     Args:
-        user: form with user credentials - email, firstname, lastname and password
+        user: form with user credentials - email, firstname, lastname and password.
+        backgroundtasks: instance of BackgroundTasks class.
+    Returns:
+        User: model with user parameteres.
     """
     query_db_user = models.users.select(models.users.c.email == user.email)
     db_user = await database.execute(query_db_user)
@@ -39,6 +42,7 @@ async def create_user(user: schemas.UserCreate):
     query_user_create = models.users.insert().values(**user_data)
     last_record_id = await database.execute(query_user_create) # creates new record and returns its id.
     resp = schemas.User(**user_data, id=last_record_id)
+    await utils.send_mail(resp, backgroundtasks)
     return resp
 
 @user_router.post("/token", response_model=Token, status_code=status.HTTP_201_CREATED)
@@ -47,11 +51,10 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     Login request.
     Args:
         form_data: form with OAuth2 parameteres. Most important are username and password.
-        db: instance of connection to database.
     Returns:
         token: dictionary with access token and its type.
     """
-    user = await user_authenticate(form_data)
+    user = await utils.user_authenticate(form_data)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -60,13 +63,34 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
         )
     
     access_token_expires = timedelta(minutes=int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES")))
-    access_token = await create_access_token(
+    access_token = await utils.create_access_token(
         data={"sub": user.email}, expires_delta=access_token_expires
     )
     
     return {"access_token": access_token, "token_type": "bearer"}
 
 @user_router.get("/me", response_model=schemas.User, status_code=status.HTTP_200_OK)
-async def retrieve_current_user(current_user: schemas.User = Depends(get_current_active_user)):
+async def retrieve_current_user(current_user: schemas.User = Depends(utils.get_current_active_user)):
     """ Request to get current user. """
     return current_user
+
+@user_router.get("/verification", status_code=status.HTTP_200_OK)
+async def email_verification(token: str):
+    """
+    Email verification request. If user is disabled, changes this attribute to False.
+    Args:
+        token: JWT access token.
+    Returns:
+        JSON Response if successful.
+    """
+    user = await utils.get_current_user(token)
+    if user and user.disabled:
+        query_update = models.users.update().where(models.users.c.email == user.email).values(disabled=False)
+        await database.execute(query_update)
+        return {"Success": True}
+    
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Invalid or expired token.",
+        headers={"WWW-Authenticate": "Bearer"}
+    )

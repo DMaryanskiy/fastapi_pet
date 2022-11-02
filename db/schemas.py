@@ -1,5 +1,6 @@
 import datetime as dt
-from pydantic import BaseModel
+
+from pydantic import BaseModel, EmailStr
 
 class TaskBase(BaseModel):
     task: str
@@ -40,7 +41,7 @@ class List(ListBase):
 class UserBase(BaseModel):
     firstname: str
     lastname: str
-    email: str
+    email: EmailStr
 
 
 class UserCreate(UserBase):
