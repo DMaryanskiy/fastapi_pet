@@ -32,8 +32,8 @@ def create_task(db: Session, task: schemas.TaskCreate, list_id: int):
     return db_task
 
 # Users CRUDL
-def get_user_by_username(db: Session, username: str):
-    return db.query(models.User).filter(models.User.username == username).first()
+def get_user_by_email(db: Session, email: str):
+    return db.query(models.User).filter(models.User.email == email).first()
 
 def get_user(db: Session, user_id: int):
     return db.query(models.User).filter(models.User.id == user_id).first()
@@ -46,8 +46,9 @@ def create_user(db: Session, user: schemas.UserCreate):
     db_user = models.User(
         firstname = user.firstname,
         lastname = user.lastname,
-        username = user.username,
-        hashed_password = hashed_password.decode()
+        email = user.email,
+        hashed_password = hashed_password.decode(),
+        disabled = True
     )
     db.add(db_user)
     db.commit()

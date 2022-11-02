@@ -40,7 +40,7 @@ class List(ListBase):
 class UserBase(BaseModel):
     firstname: str
     lastname: str
-    username: str
+    email: str
 
 
 class UserCreate(UserBase):
@@ -50,6 +50,7 @@ class UserCreate(UserBase):
 class User(UserBase):
     id: int
     hashed_password: str
+    disabled: bool
 
     class Config:
         orm_mode = True
