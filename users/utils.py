@@ -6,6 +6,7 @@ from fastapi import BackgroundTasks, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi_mail import ConnectionConfig, FastMail, MessageSchema
 from jose import jwt, JWTError
+from pydantic import EmailStr
 
 from db import models, schemas
 from db.database import database
@@ -61,7 +62,7 @@ async def get_current_user(token: str = Depends(OAuth2PasswordBearer(tokenUrl="a
 
     try:
         payload = jwt.decode(token, os.environ.get("SECRET_KEY"), algorithms=[os.environ.get("ALGORITHM")])
-        email: str = payload.get("sub") # getting email from token
+        email: EmailStr = payload.get("sub") # getting email from token
         if not email:
             raise credentials_exception
         
@@ -82,35 +83,23 @@ async def get_current_active_user(current_user: schemas.User = Depends(get_curre
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user.")
     return current_user
 
-async def send_mail(user: schemas.User, backgroundtasks: BackgroundTasks):
-    """ Function to send mail with verification link. """
-    token = await create_access_token({"sub": user.email})
-    template = f"""<!DOCTYPE html>
-        <html>
-        <head>
-        </head>
-        <body>
-            <div style=" display: flex; align-items: center; justify-content: center; flex-direction: column;">
-                <h3> Account Verification </h3>
-                <br>
-                <p>Thanks for launching my project, please 
-                click on the link below to verify your account</p> 
-                <a style="margin-top:1rem; padding: 1rem; border-radius: 0.5rem; font-size: 1rem; text-decoration: none; background: #0275d8; color: white;"
-                 href="http://localhost:8000/api/v1/users/verification/?token={token}">
-                    Verify your email
-                </a>
-                <p style="margin-top:1rem;">If you did not register for DMaryanskiy's ToDo List, 
-                please kindly ignore this email and nothing will happen. Thanks<p>
-            </div>
-        </body>""".format(token=token)
+async def send_mail(
+        email: EmailStr,
+        email_template: str,
+        subject: str,
+        backgroundtasks: BackgroundTasks
+    ):
+    """ Function to send mail with verification or reset link. """
+    token = await create_access_token({"sub": email})
+    with open(f"users/email_templates/{email_template}.html", "r") as file:
+        template = file.read().format(token=token)
 
     message = MessageSchema(
-        subject="ToDo List verification.",
-        recipients=[user.email],
+        subject=subject,
+        recipients=[email],
         body=template,
         subtype="html"
     )
 
     fm = FastMail(conf)
     backgroundtasks.add_task(fm.send_message, message)
-    
