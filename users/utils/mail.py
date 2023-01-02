@@ -21,8 +21,15 @@ async def send_mail(
         email_template: str,
         subject: str,
         backgroundtasks: BackgroundTasks
-    ):
-    """ Function to send mail with verification or reset link. """
+    ) -> None:
+    """
+    Function to send mail with verification or reset link.
+    Args:
+        email: string with email address
+        email_template: HTML file with a template for email which will be sent to user.
+        subject: subject of the email which will be sent to user.
+        backgroundtasks: instance of BackgroundTasks class.
+    """
     token = await create_access_token({"sub": email})
     with open(f"users/email_templates/{email_template}.html", "r") as file:
         template = file.read().format(token=token)
