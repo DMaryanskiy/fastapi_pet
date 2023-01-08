@@ -1,5 +1,9 @@
 from pydantic import BaseModel, EmailStr
+from typing import Any
 
+
+class Session(BaseModel):
+    session: Any # should have been AsyncSession but OpenAPI can't show this type.
 
 class Token(BaseModel):
     access_token: str

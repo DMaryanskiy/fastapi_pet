@@ -1,30 +1,20 @@
-from datetime import datetime, timedelta
 import os
+from datetime import datetime, timedelta
+from typing import Any
 
 import bcrypt
-from databases.interfaces import Record
 from fastapi import HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import jwt
+from sqlalchemy.ext.asyncio import AsyncResult
 
 from db import models, schemas
-from db.database import database
+from ..models import Session
 
-async def row2dict(row: Record) -> dict:
-    """
-    Function to convert SQLAlchemy row to dictionary.
-    Args:
-        row: instance of SQLAlchemy Record class.
-    Returns:
-        dictionary {column: itsValue}.
-    """
-    d = {}
-    for column in row._result_columns:
-        d[column[0]] = str(getattr(row, column[0]))
-    
-    return d
-
-async def user_authenticate(form_data: OAuth2PasswordRequestForm) -> schemas.User:
+async def user_authenticate(
+        form_data: OAuth2PasswordRequestForm,
+        session: Session
+    ) -> schemas.User:
     """
     Function to check whether user exists and its password is true.
     Args:
@@ -33,14 +23,18 @@ async def user_authenticate(form_data: OAuth2PasswordRequestForm) -> schemas.Use
         Pydantic model of User
     """
     query_user_model = models.users.select(models.users.c.email == form_data.username)
-    user_model = await database.fetch_one(query_user_model)
+    result: AsyncResult = await session.session.execute(query_user_model)
+    user_model = result.one()
     if not user_model:
         raise HTTPException(status_code=400, detail=f"No user with {form_data.username} found")
     
-    user = schemas.User(**(await row2dict(user_model))) # converting SQLAlchemy row to dict.
+    user = schemas.User(**user_model._asdict())
     # password checking
     if not bcrypt.checkpw(form_data.password.encode('utf-8'), user.hashed_password.encode()):
-        raise HTTPException(status_code=400, detail=f"No user with {form_data.username} found")
+        raise HTTPException(
+            status_code=400,
+            detail=f"No user with {form_data.username} found"
+        )
 
     
     return user
