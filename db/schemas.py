@@ -47,12 +47,12 @@ class ListBase(BaseModel):
 
 
 class ListCreate(ListBase):
-    user: User
+    pass
 
 
 class List(ListBase):
     id: int
-    tasks: list[Task] | None = None
+    tasks: list[Task] = []
     user_id: int
 
     class Config:

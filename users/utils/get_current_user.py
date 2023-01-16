@@ -37,7 +37,7 @@ async def get_current_user(session: Session, token: str = Depends(OAuth2Password
 
     query_user = models.users.select(models.users.c.email == email)
     result: AsyncResult = await session.session.execute(query_user) # getting user from db
-    user: Record = result.one()
+    user = result.one()
     if not user:
         raise credentials_exception
     

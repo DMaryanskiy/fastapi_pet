@@ -8,11 +8,11 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, AsyncResult
 
 from db import schemas, models
-from db.database import get_session
+from db.database import get_session, session_commit
 
 from .models import Token, TokenData, NewPassword, Session, Success
 from .utils.auth import create_access_token, user_authenticate
-from .utils.get_current_user import get_current_user, is_user_activated, credentials_exception
+from .utils.get_current_user import get_current_user, is_user_activated
 from .utils.mail import send_mail
 
 user_router = APIRouter()
@@ -42,12 +42,7 @@ async def create_user(backgroundtasks: BackgroundTasks, user: schemas.UserCreate
 
     query_user_create = models.users.insert().values(**user_data)
     result: AsyncResult = await session.execute(query_user_create)
-    try:
-        await session.commit()
-    except IntegrityError as _:
-        await session.rollback()
-        raise HTTPException(status_code=400, detail="User with this email already exists.")
-    
+    await session_commit(IntegrityError, HTTPException(status_code=400, detail="User with this email already exists."), session)  
     last_record_id: int = result.inserted_primary_key[0] # creates new record and returns its id.
     resp = schemas.User(**user_data, id=last_record_id)
     await send_mail(resp.email, "verify", "Account Verification", backgroundtasks)
@@ -108,11 +103,15 @@ async def email_verification(token: str, session: AsyncSession = Depends(get_ses
     if user and user.disabled:
         query_update = models.users.update().where(models.users.c.id == user.id).values(disabled=False)
         await session.execute(query_update)
-        try:
-            await session.commit()
-        except Exception as e:
-            await session.rollback()
-            raise e
+        await session_commit(
+            Exception,
+            HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid or expired token.",
+                headers={"WWW-Authenticate": "Bearer"}
+            ),
+            session
+        )
         return success_resp
     
     raise HTTPException(
@@ -135,15 +134,15 @@ async def delete_user(
     current_user = await is_user_activated(token=token, session=Session(session=session))
     query = models.users.delete().where(models.users.c.id == current_user.id)
     await session.execute(query)
-    try:
-        await session.commit()
-    except Exception as e:
-        await session.rollback()
-        raise HTTPException(
+    await session_commit(
+        Exception,
+        HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Something went wrong.",
             headers={"WWW-Authenticate": "Bearer"}
-        ) 
+        ),
+        session
+    )
 
 @user_router.post("/reset/send", response_model=Success, status_code=status.HTTP_200_OK)
 async def send_reset_mail(bacgroundtasks: BackgroundTasks, email: TokenData):
@@ -172,13 +171,13 @@ async def reset_password(new_password: NewPassword, session: AsyncSession = Depe
 
     query = models.users.update().where(models.users.c.id == user.id).values(hashed_password=hashed_password.decode())
     await session.execute(query)
-    try:
-        await session.commit()
-    except Exception as e:
-        await session.rollback()
-        raise HTTPException(
+    await session_commit(
+        Exception,
+        HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Too weak password.",
             headers={"WWW-Authenticate": "Bearer"}
-        ) 
+        ),
+        session
+    )
     return success_resp

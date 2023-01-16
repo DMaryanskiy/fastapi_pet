@@ -1,8 +1,8 @@
 import os
 from typing import AsyncIterable
 
-import databases
 import sqlalchemy
+from fastapi import HTTPException
 from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
@@ -28,7 +28,9 @@ async def get_session() -> AsyncIterable[AsyncSession]:
     async with async_session() as session:
         yield session
 
-# database = databases.Database(SQLACHEMY_DATABASE_URL)
-# metadata = sqlalchemy.MetaData()
-# engine = create_engine(SQLACHEMY_DATABASE_URL)
-# metadata.create_all(engine)
+async def session_commit(error, exception: HTTPException, session: AsyncSession) -> None:
+    try:
+        await session.commit()
+    except error as _:
+        await session.rollback()
+        raise exception

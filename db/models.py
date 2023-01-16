@@ -21,8 +21,6 @@ task = Table(
     Column("time", Time),
     Column("description", Text, index=True),
     Column("done", Boolean),
-
-    Column("list_id", Integer, ForeignKey("todolist.id"))
 )
 
 todolist = Table(
