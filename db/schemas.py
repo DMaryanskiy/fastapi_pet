@@ -27,7 +27,6 @@ class TaskBase(BaseModel):
     task: str
     time: dt.time
     description: str = ""
-    done: bool = False
 
 
 class TaskCreate(TaskBase):
@@ -36,6 +35,7 @@ class TaskCreate(TaskBase):
 
 class Task(TaskBase):
     id: int
+    done: bool = False
 
     class Config:
         orm_mode = True

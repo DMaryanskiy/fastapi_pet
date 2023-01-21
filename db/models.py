@@ -20,7 +20,7 @@ task = Table(
     Column("task", String, index=True),
     Column("time", Time),
     Column("description", Text, index=True),
-    Column("done", Boolean),
+    Column("done", Boolean)
 )
 
 todolist = Table(

@@ -3,7 +3,6 @@ from typing import AsyncIterable
 
 import sqlalchemy
 from fastapi import HTTPException
-from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
