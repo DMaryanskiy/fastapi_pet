@@ -13,10 +13,10 @@ todolist_router = APIRouter()
 
 @todolist_router.post("/create", response_model=schemas.List, status_code=status.HTTP_201_CREATED)
 async def create_list(
-        todolist: schemas.ListCreate,
-        token: str = Depends(oauth2_scheme),
-        session: AsyncSession = Depends(get_session),
-    ):
+    todolist: schemas.ListCreate,
+    token: str = Depends(oauth2_scheme),
+    session: AsyncSession = Depends(get_session),
+):
     """
     Function to create todolist.
     Args:
@@ -51,9 +51,9 @@ async def create_list(
 
 @todolist_router.get("", response_model=list[schemas.List], status_code=status.HTTP_200_OK)
 async def get_lists(
-        token: str = Depends(oauth2_scheme),
-        session: AsyncSession = Depends(get_session)
-    ):
+    token: str = Depends(oauth2_scheme),
+    session: AsyncSession = Depends(get_session)
+):
     """
     Function to get all lists of current authenticated user.
     Args:
@@ -72,10 +72,10 @@ async def get_lists(
 
 @todolist_router.get("/{list_id}", response_model=schemas.List, status_code=status.HTTP_200_OK)
 async def retrieve_list(
-        list_id: int,
-        token: str = Depends(oauth2_scheme),
-        session: AsyncSession = Depends(get_session)
-    ):
+    list_id: int,
+    token: str = Depends(oauth2_scheme),
+    session: AsyncSession = Depends(get_session)
+):
     """
     Function to retrieve a list with specific id.
     Args:
@@ -103,10 +103,10 @@ async def retrieve_list(
 
 @todolist_router.delete("/{list_id}/delete", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_list(
-        list_id: int,
-        token: str = Depends(oauth2_scheme),
-        session: AsyncSession = Depends(get_session)
-    ):
+    list_id: int,
+    token: str = Depends(oauth2_scheme),
+    session: AsyncSession = Depends(get_session)
+):
     """
     Function to delete a list with specific id.
     Args:
@@ -131,11 +131,11 @@ async def delete_list(
 
 @todolist_router.post("/{list_id}/task/create", response_model=schemas.Task)
 async def create_task(
-        list_id: int,
-        task: schemas.TaskCreate,
-        token: str = Depends(oauth2_scheme),
-        session: AsyncSession = Depends(get_session),
-    ):
+    list_id: int,
+    task: schemas.TaskCreate,
+    token: str = Depends(oauth2_scheme),
+    session: AsyncSession = Depends(get_session),
+):
     """
     Function to create new task.
     Args:
@@ -154,7 +154,6 @@ async def create_task(
         "time": task.time,
         "description": task.description,
         "done": task.done,
-        "list_id": list_item.id
     }
 
     query_task_create = models.task.insert().values(**task_data)
@@ -188,5 +187,34 @@ async def create_task(
         session
     )
 
-    resp = schemas.Task(**task_data, id=last_record_id, list_id=list_item.id)
+    resp = schemas.Task(**task_data, id=last_record_id)
+    return resp
+
+# TODO: Implement dropdown list for existing tasks.
+
+@todolist_router.patch("/{list_id}/task/{task_id}/complete", response_model=schemas.Task)
+async def complete_task(
+    list_id: int,
+    task_id: int,
+    token: str = Depends(oauth2_scheme),
+    session: AsyncSession = Depends(get_session),
+):
+    await retrieve_list(list_id, token, session)
+
+    query_complete = models.task.update().where(models.task.c.id == task_id).values(done=True)
+    await session.execute(query_complete)
+    await session_commit(
+        Exception,
+        HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Something went wrong.",
+            headers={"WWW-Authenticate": "Bearer"}
+        ),
+        session
+    )
+
+    query_select = models.task.select().where(models.task.c.id == task_id)
+    result: AsyncResult = await session.execute(query_select)
+    completed_task = result.one()
+    resp = schemas.Task(**completed_task._asdict())
     return resp

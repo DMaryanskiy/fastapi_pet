@@ -36,7 +36,6 @@ class TaskCreate(TaskBase):
 
 class Task(TaskBase):
     id: int
-    list_id: int
 
     class Config:
         orm_mode = True
