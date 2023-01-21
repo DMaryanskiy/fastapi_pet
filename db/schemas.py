@@ -26,7 +26,7 @@ class User(UserBase):
 class TaskBase(BaseModel):
     task: str
     time: dt.time
-    description: str | None = None
+    description: str = ""
     done: bool = False
 
 

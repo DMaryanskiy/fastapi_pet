@@ -28,6 +28,13 @@ todolist = Table(
     metadata,
     Column("id", Integer, primary_key=True, index=True),
     Column("name", String, index=True),
-
     Column("user_id", Integer, ForeignKey("users.id"))
+)
+
+task_list = Table(
+    "task_list",
+    metadata,
+    Column("list_id", Integer, ForeignKey("todolist.id")),
+    Column("task_id", Integer, ForeignKey("task.id")),
+    Column("pk", Integer, primary_key=True, index=True)
 )

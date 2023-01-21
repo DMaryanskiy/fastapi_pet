@@ -132,8 +132,8 @@ async def delete_user(
         session: instance of AsyncSession object.
     """
     current_user = await is_user_activated(token=token, session=Session(session=session))
-    query = models.users.delete().where(models.users.c.id == current_user.id)
-    await session.execute(query)
+    query_delete_user = models.users.delete().where(models.users.c.id == current_user.id)
+    await session.execute(query_delete_user)
     await session_commit(
         Exception,
         HTTPException(
