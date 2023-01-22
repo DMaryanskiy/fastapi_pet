@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 
 load_dotenv(os.path.join(os.path.curdir, '.env'))
 
-SQLACHEMY_DATABASE_URL = f"postgresql+asyncpg://{os.environ.get('DB_USER')}:{os.environ.get('DB_PASSWORD')}@{os.environ.get('DB_HOST')}:{os.environ.get('DB_PORT')}/{os.environ.get('DB_NAME')}"
+SQLACHEMY_DATABASE_URL = os.environ.get("DB_URL")
 
 engine = create_async_engine(SQLACHEMY_DATABASE_URL, echo=True, future=True)
 metadata = sqlalchemy.MetaData()

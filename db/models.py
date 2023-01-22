@@ -35,6 +35,6 @@ task_list = Table(
     "task_list",
     metadata,
     Column("list_id", Integer, ForeignKey("todolist.id")),
-    Column("task_id", Integer, ForeignKey("task.id")),
+    Column("task_id", Integer, ForeignKey("task.id"), unique=True),
     Column("pk", Integer, primary_key=True, index=True)
 )
