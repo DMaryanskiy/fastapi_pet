@@ -11,7 +11,7 @@ load_dotenv(os.path.join(os.path.curdir, '.env'))
 
 SQLACHEMY_DATABASE_URL = os.environ.get("DB_URL")
 
-engine = create_async_engine(SQLACHEMY_DATABASE_URL, echo=True, future=True)
+engine = create_async_engine(SQLACHEMY_DATABASE_URL, future=True)
 metadata = sqlalchemy.MetaData()
 
 async def init_db():
